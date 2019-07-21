@@ -1,12 +1,11 @@
 ﻿using System;
-using System.ComponentModel;
-using System.Linq;
-using System.Windows.Forms;
-using System.Xml.Linq;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
-using System.Collections.Generic;
+using System.Windows.Forms;
+using System.Xml.Linq;
 
 
 namespace XMLtoCSVconvertor
@@ -33,6 +32,44 @@ namespace XMLtoCSVconvertor
             { 71106, "УБ с.Эльбрус" }
         };
 
+        private enum XmlFileType
+        {
+            D = 0,
+            DN = 1
+        };
+
+        private static string rootFileMask = "07*_2019.zip";
+
+        private static string[] dArchiveMasks =
+        {
+            "DPL*.zip",
+            "DNPL*.zip"
+        };
+
+        private static string[] dplFileMasks =
+        {
+            "DPLM*.XML",
+            "DNPLM*.XML"
+        };
+
+        private string lFileMask = "LM*.XML";
+
+        private static string[] csvFileNamesTemp =
+        {
+            "M_All_D.csv",
+            "M_All_DN.csv"
+        };
+
+        private static string[] csvFileNames =
+        {
+            String.Format("{0}_{1}.csv", "M_All_D", DateTime.Now.ToString("yyyyMMdd_HHmm")),
+            String.Format("{0}_{1}.csv", "M_All_DN", DateTime.Now.ToString("yyyyMMdd_HHmm"))
+        };
+
+        private static string fileHeader = String.Format("Фамилия;Имя;Отчество;Дата рождения;Пол;Квартал;Месяц;Тип диспансеризации;Диагноз;Дата начала;Дата конца;ЛПУ;Комментарий");
+
+        private static StreamWriter[] swAll = new StreamWriter[2];
+
         public Form1(FolderBrowserDialog folderBrowserDialog)
         {
             this.folderBrowserDialog = folderBrowserDialog;
@@ -41,221 +78,182 @@ namespace XMLtoCSVconvertor
         private void button1_Click(object sender, EventArgs e)
         {
             if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
-                processFiles();
+                ProcessFiles();
         }
 
-        private void processFiles()
+        private void ProcessFiles()
         {
             if (String.IsNullOrEmpty(folderBrowserDialog.SelectedPath))
                 folderBrowserDialog.SelectedPath = textBox1.Text;
 
             string extr_path = textBox2.Text;
 
-            String outputFilePath = Path.Combine(extr_path, "M_All.csv");
-            if (File.Exists(outputFilePath))
-                File.Delete(outputFilePath);
-            StreamWriter swAll = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
+            if (!Directory.Exists(extr_path))
+                Directory.CreateDirectory(extr_path);
 
-            var archives = Directory.GetFiles(folderBrowserDialog.SelectedPath, "*.zip");           //переменна по свойствам диспансеризации
-            foreach (var archive in archives)
+            for (int i = 0; i < Enum.GetNames(typeof(XmlFileType)).Length; i++)
             {
-                ZipFile.ExtractToDirectory(archive, extr_path);
-                string[] dplFiles = Directory.GetFiles(extr_path, "DPLM*");           //переменная по свойствам диспансеризации
-                string[] lFiles = Directory.GetFiles(extr_path, "LM*");               //переменная по данным пациентов
+                String outputFilePath = Path.Combine(extr_path, csvFileNames[i]);
 
-                String dplFileFirst = dplFiles.First();
-                String lFileFirst = dplFiles.First();
-                if (String.IsNullOrEmpty(dplFileFirst) || String.IsNullOrEmpty(lFileFirst))
-                    return;
+                swAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
+                swAll[i].WriteLine(fileHeader);
+            }
 
-                String dplFileName = Path.GetFileName(dplFileFirst);
-                String lpuMO = dplFileName.Substring(3, 14);
+            var rootArchives = Directory.GetFiles(folderBrowserDialog.SelectedPath, rootFileMask);
+            foreach (var rootArchive in rootArchives)
+            {
+                string outputDirectory = Path.Combine(extr_path, Path.GetFileNameWithoutExtension(rootArchive));
+                if (Directory.Exists(outputDirectory))
+                    Directory.Delete(outputDirectory, true);
+                ZipFile.ExtractToDirectory(rootArchive, outputDirectory);
 
-                int lpuId = 0;
-                if (!int.TryParse(lpuMO.Substring(1, 6), out lpuId))
-                    return;
+                ProcessXmlFiles(outputDirectory, XmlFileType.D);
+                ProcessXmlFiles(outputDirectory, XmlFileType.DN);
+            }
 
-                //int lpuId = int.Parse(Mid(fname2, 0, 6));
+            for (int i = 0; i < Enum.GetNames(typeof(XmlFileType)).Length; i++)
+            {
+                swAll[i].Close();
 
-                //объединяем 2 XML в 10
-                XDocument xdoc1 = XDocument.Load(dplFiles.First());
-                XDocument xdoc2 = XDocument.Load(lFiles.First());
-                //Берем данные из первого XML               
-                var data1 = xdoc1.Root.Elements("ZAP")
+                String outputFilePath = Path.Combine(extr_path, csvFileNames[i]);
+                String outputFilePathTemp = Path.Combine(extr_path, csvFileNamesTemp[i]);
+                System.IO.File.Copy(outputFilePath, outputFilePathTemp, true);
+            }
+
+            DialogResult dialogResult = MessageBox.Show("Файлы сформированы!\r\n\r\nВыйти из программы?", "Операция завершена", MessageBoxButtons.YesNo);
+            if (dialogResult == DialogResult.Yes)
+                Application.Exit();
+        }
+
+        private void ProcessXmlFiles(string outputDirectory, XmlFileType xmlFileType)
+        {
+            string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[(int)xmlFileType]).First();
+            string outputFolder = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(archiveFile));
+
+            ZipFile.ExtractToDirectory(archiveFile, outputFolder);
+
+            string[] dplFiles = Directory.GetFiles(outputFolder, dplFileMasks[(int)xmlFileType]);            //переменная по свойствам диспансеризации
+            string[] lFiles = Directory.GetFiles(outputFolder, lFileMask);                                  //переменная по данным пациентов
+
+            String dplFileFirst = dplFiles.First();
+            String lFileFirst = dplFiles.First();
+            if (String.IsNullOrEmpty(dplFileFirst) || String.IsNullOrEmpty(lFileFirst))
+                return;
+
+            String dplFileName = Path.GetFileName(dplFileFirst);
+            String lpuMO = Path.GetFileNameWithoutExtension(outputDirectory);
+
+            int lpuId = 0;
+            if (!int.TryParse(lpuMO.Substring(0, 6), out lpuId))
+                return;
+
+            //объединяем 2 XML в 1
+            XDocument xdoc1 = XDocument.Load(dplFiles.First());
+            XDocument xdoc2 = XDocument.Load(lFiles.First());
+            //Берем данные из первого XML               
+            var data1 = xdoc1.Root.Elements("ZAP")
                 .Select(x => new
                 {
                     Disp = (string)x.Element("DISP"),
                     PacientId = (string)x.Element("PACIENT").Element("ID_PAC"),
-                    Quarter = (string)x.Element("SLUCH").Element("QUARTER")
+                    Quarter = (string)x.Element("SLUCH").Element("QUARTER"),
+                    Month = (string)x.Element("SLUCH").Element("MONTH"),
+                    DS = (string)x.Element("SLUCH").Element("DS"),
+                    DateStart = (string)x.Element("SLUCH").Element("DATE_1"),
+                    DateEnd = (string)x.Element("SLUCH").Element("DATE_2")
                 });
 
-                //Берем данные из второго XML
-                var data2 = xdoc2.Root.Elements("PERS")
+            //Берем данные из второго XML
+            var data2 = xdoc2.Root.Elements("PERS")
                 .Select(x => new
                 {
                     PacientId = (string)x.Element("ID_PAC"),
                     LastName = (string)x.Element("FAM"),
                     FirstName = (string)x.Element("IM"),
                     MiddleName = (string)x.Element("OT"),
-                    Birthdate = (string)x.Element("DR")//,
-                    //Sex = (int)x.Element("W")
+                    Birthdate = (string)x.Element("DR"),
+                    Sex = (int)x.Element("W")
                 });
 
-                //Сохраняем данные из первых двух XML в третий
-                var data3 = data2.Join(data1, outer => outer.PacientId, inner => inner.PacientId, (outer, inner) => new { Data1 = inner, Data2 = outer });
-                XDocument doc = new XDocument(
-                    new XDeclaration("1.0", "utf-8", "yes"),
-                    new XElement("Data", data3.Select(x => new XElement("Item",
-                                new XElement("ID_PAC", x.Data2.PacientId),
-                                new XElement("DISP", x.Data1.Disp),
-                                new XElement("QUARTER", x.Data1.Quarter),
-                                new XElement("FAM", x.Data2.LastName),
-                                new XElement("IM", x.Data2.FirstName),
-                                new XElement("OT", x.Data2.MiddleName),
-                                new XElement("DR", x.Data2.Birthdate)//,
-                                //new XElement("W", x.Data2.Sex)
-                            )
+            //Сохраняем данные из первых двух XML в третий
+            var data3 = data2.Join(data1, outer => outer.PacientId, inner => inner.PacientId, (outer, inner) => new { Data1 = inner, Data2 = outer });
+            XDocument doc = new XDocument(
+                new XDeclaration("1.0", "utf-8", "yes"),
+                new XElement("Data", data3.Select(x => new XElement("Item",
+                            new XElement("FAM", x.Data2.LastName),
+                            new XElement("IM", x.Data2.FirstName),
+                            new XElement("OT", x.Data2.MiddleName),
+                            new XElement("DR", x.Data2.Birthdate),
+                            new XElement("W", x.Data2.Sex),
+                            new XElement("ID_PAC", x.Data2.PacientId),
+                            new XElement("DISP", x.Data1.Disp),
+                            new XElement("QUARTER", x.Data1.Quarter),
+                            new XElement("MONTH", x.Data1.Month),
+                            new XElement("DS", x.Data1.DS),
+                            new XElement("DATE_START", x.Data1.DateStart),
+                            new XElement("DATE_END", x.Data1.DateEnd)
                         )
                     )
-                );
-                String resultXmlFilePath = Path.Combine(extr_path, String.Concat(lpuMO, ".xml"));
-                doc.Save(resultXmlFilePath);
+                )
+            );
+            String resultXmlFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, ".xml"));
+            doc.Save(resultXmlFilePath);
 
-                //конвертируем объединенный XML в CSV
-                StringBuilder sb = new StringBuilder();
-                string delimiter = ";";                                                                 //разделитель
-                string resultCsvFilePath = Path.Combine(extr_path, String.Concat(lpuMO, ".csv"));
-                XDocument.Load(resultXmlFilePath).Descendants("Item").ToList().ForEach(element => sb.Append(
-                    element.Element("FAM").Value + delimiter +
-                    element.Element("IM").Value + delimiter +
-                    element.Element("OT").Value + delimiter +
-                    element.Element("DR").Value + delimiter +
-                    //element.Element("W").Value + delimiter +
-                    element.Element("QUARTER").Value + delimiter +
-                    element.Element("DISP").Value + delimiter +
-                    LPUs[lpuId] + "\r\n"));
-                StreamWriter sw = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
-                sw.Write(sb.ToString());
-                sw.Close();
+            //конвертируем объединенный XML в CSV
+            StringBuilder sb = new StringBuilder();
+            string delimiter = ";";                                                                 //разделитель
+            string resultCsvFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, ".csv"));
+            XDocument.Load(resultXmlFilePath).Descendants("Item").ToList().ForEach(element => sb.Append(
+                element.Element("FAM").Value + delimiter +
+                element.Element("IM").Value + delimiter +
+                element.Element("OT").Value + delimiter +
+                element.Element("DR").Value + delimiter +
+                element.Element("W").Value + delimiter +
+                element.Element("QUARTER").Value + delimiter +
+                element.Element("MONTH").Value + delimiter +
+                element.Element("DISP").Value + delimiter +
+                element.Element("DS").Value + delimiter +
+                element.Element("DATE_START").Value + delimiter +
+                element.Element("DATE_END").Value + delimiter +
+                LPUs[lpuId] + delimiter +
+                lpuId + "\r\n")
+            );
 
-                String input = sb.ToString();
-                String[] inputArray = input.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                String[] distinctInputArray = inputArray.Distinct().ToArray();
-                StringBuilder result = new StringBuilder();
-                foreach (String s in distinctInputArray)
-                {
-                    result.Append(s);
-                    result.Append("\r\n");
-                }
-                swAll.Write(result.ToString());
-
-                //Удаляем xml-файлы в папке
-                string mask = ".xml";
-                string[] fileNames = Directory.GetFiles(extr_path, "*" + mask, SearchOption.AllDirectories);
-                string fileErrors = string.Empty;
-                for (int j = 0; j != fileNames.Length; j++)
-                {
-                    try
-                    {
-                        File.Delete(fileNames[j]);
-                    }
-                    catch
-                    {
-                        fileErrors = fileErrors + "\n" + fileNames[j];
-                    }
-                }
+            StreamWriter sw = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
+            sw.WriteLine(fileHeader);
+            String input = sb.ToString();
+            String[] inputArray = input.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            String[] distinctInputArray = inputArray.Distinct().ToArray();
+            StringBuilder result = new StringBuilder();
+            foreach (String s in distinctInputArray)
+            {
+                result.Append(s);
+                result.Append("\r\n");
             }
-            swAll.Close();
-            DialogResult dialogResult = MessageBox.Show("Файлы сформированы!\r\n\r\nВыйти из программы?", "Операция завершена", MessageBoxButtons.YesNo);
-            if (dialogResult == DialogResult.Yes)
-                Application.Exit();
-        }
+            sw.Write(result.ToString());
+            sw.Close();
 
-        private void openFileDialog1_FileOk(object sender, CancelEventArgs e)
-        {
-        }
+            swAll[(int)xmlFileType].Write(result.ToString());
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            //ofd.InitialDirectory = @"\\192.168.0.221\vipnetprocess\disp";
-            //ofd.Filter = "ZIP Files |*.zip";
-            //ofd.RestoreDirectory = true;
-            //if (ofd.ShowDialog() == DialogResult.OK)
+            ////Удаляем xml-файлы в папке
+            //string[] fileNames = Directory.GetFiles(outputFolder, "*.xml", SearchOption.AllDirectories);
+            //string fileErrors = string.Empty;
+            //for (int j = 0; j != fileNames.Length; j++)
             //{
-            //    string zip_fnam = ofd.FileName;
-            //    string extr_path2 = @"\\192.168.0.221\vipnetprocess\disp\disp2\"; //папка для выгрузки файлов и работы с ними
-            //    ZipFile.ExtractToDirectory(zip_fnam, extr_path2);
-            //    string[] files1 = Directory.GetFiles(extr_path2, "DPLM*"); //переменна по свойствам диспансеризации
-            //    string[] files2 = Directory.GetFiles(extr_path2, "LM*"); //переменная по данным пациентов
-            //    string fname = Right(files1.First(), 22); //маска для объединенного XML
-            //    string fname2 = Mid(fname, 4, 14);
-
-
-            //    //объединяем 2 XML в 1
-            //    XDocument xdoc1 = XDocument.Load(files1.First());
-            //    XDocument xdoc2 = XDocument.Load(files2.First());
-
-            //    //Берем данные из первого XML               
-            //    var data1 = xdoc1.Root.Elements("ZAP")
-            //        .Select(x => new
-            //        {
-            //            Disp = (string)x.Element("DISP"),
-            //            PacientId = (string)x.Element("PACIENT").Element("ID_PAC"),
-            //            Quarter = (string)x.Element("SLUCH").Element("QUARTER"),
-            //            Enp = (string)x.Element("PACIENT").Element("ENP"),
-            //            Smo = (string)x.Element("PACIENT").Element("SMO"),
-            //            Lpu = (string)x.Element("SLUCH").Element("LPU"),
-            //        });
-
-            //    //Берем данные из второго XML
-            //    var data2 = xdoc2.Root.Elements("PERS")
-            //        .Select(x => new
-            //        {
-            //            PacientId = (string)x.Element("ID_PAC"),
-            //            LastName = (string)x.Element("FAM"),
-            //            FirstName = (string)x.Element("IM"),
-            //            MiddleName = (string)x.Element("OT"),
-            //            Birthdate = (string)x.Element("DR"),
-            //            Sex = (string)x.Element("W"),
-            //            Snils = (string)x.Element("SNILS"),
-            //        });
-
-            //    //Сохраняем данные из первых двух XML в третий
-            //    var data3 = data2.Join(data1, outer => outer.PacientId, inner => inner.PacientId,
-            //        (outer, inner) => new { Data1 = inner, Data2 = outer });
-            //    XDocument doc = new XDocument(
-            //        new XDeclaration("1.0", "utf-8", "yes"),
-            //        new XElement("Data",
-            //            data3.Select(x => new XElement("Item",
-            //                new XElement("ID_PAC", x.Data2.PacientId),
-            //                new XElement("FAM", x.Data2.LastName),
-            //                new XElement("IM", x.Data2.FirstName),
-            //                new XElement("OT", x.Data2.MiddleName),
-            //                new XElement("DR", x.Data2.Birthdate),
-            //                new XElement("W", x.Data2.Sex),
-            //                new XElement("ENP", x.Data1.Enp),
-            //                new XElement("SMO", x.Data1.Smo),
-            //                new XElement("LPU", x.Data1.Lpu),
-            //                new XElement("DISP", x.Data1.Disp),
-            //                new XElement("QUARTER", x.Data1.Quarter),
-            //                new XElement("SNILS", x.Data2.Snils)
-            //            ))));
-            //    doc.Save(extr_path2 + "W" + fname);
-
             //    try
             //    {
-            //        XDocument XDoc = XDocument.Load(extr_path2 + "W" + fname);
+            //        File.Delete(fileNames[j]);
             //    }
             //    catch
             //    {
-            //        MessageBox.Show("Не загружен");
+            //        fileErrors = fileErrors + "\n" + fileNames[j];
             //    }
             //}
         }
 
         private void buttonRun_Click(object sender, EventArgs e)
         {
-            processFiles();
+            ProcessFiles();
         }
     }
 
