@@ -62,7 +62,7 @@
             this.textBox2.Name = "textBox2";
             this.textBox2.Size = new System.Drawing.Size(320, 20);
             this.textBox2.TabIndex = 3;
-            this.textBox2.Text = "D:\\Data\\Диспансеризация\\2019\\Q3\\Output\\";
+            this.textBox2.Text = "D:\\Data\\Диспансеризация\\2019\\Q4\\1. Output\\";
             // 
             // label1
             // 

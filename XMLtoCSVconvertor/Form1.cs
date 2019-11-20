@@ -46,7 +46,7 @@ namespace XMLtoCSVconvertor
             "DNPL*.zip"
         };
 
-        private static string[] dplFileMasks =
+        private static string[] dFileMasks =
         {
             "DPLM*.XML",
             "DNPLM*.XML"
@@ -68,7 +68,7 @@ namespace XMLtoCSVconvertor
 
         private static string fileHeader = String.Format("Фамилия;Имя;Отчество;Дата рождения;Пол;Квартал;Месяц;Тип диспансеризации;Диагноз;Дата начала;Дата конца;ЛПУ;Комментарий");
 
-        private static StreamWriter[] swAll = new StreamWriter[2];
+        private static StreamWriter[] swResultAll = new StreamWriter[2];
 
         public Form1(FolderBrowserDialog folderBrowserDialog)
         {
@@ -95,8 +95,8 @@ namespace XMLtoCSVconvertor
             {
                 String outputFilePath = Path.Combine(extr_path, csvFileNames[i]);
 
-                swAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
-                swAll[i].WriteLine(fileHeader);
+                swResultAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
+                swResultAll[i].WriteLine(fileHeader);
             }
 
             var rootArchives = Directory.GetFiles(folderBrowserDialog.SelectedPath, rootFileMask);
@@ -113,7 +113,7 @@ namespace XMLtoCSVconvertor
 
             for (int i = 0; i < Enum.GetNames(typeof(XmlFileType)).Length; i++)
             {
-                swAll[i].Close();
+                swResultAll[i].Close();
 
                 String outputFilePath = Path.Combine(extr_path, csvFileNames[i]);
                 String outputFilePathTemp = Path.Combine(extr_path, csvFileNamesTemp[i]);
@@ -127,20 +127,22 @@ namespace XMLtoCSVconvertor
 
         private void ProcessXmlFiles(string outputDirectory, XmlFileType xmlFileType)
         {
-            string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[(int)xmlFileType]).First();
+            string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[(int)xmlFileType]).FirstOrDefault();
+            if (string.IsNullOrEmpty(archiveFile))
+                return;
             string outputFolder = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(archiveFile));
 
             ZipFile.ExtractToDirectory(archiveFile, outputFolder);
 
-            string[] dplFiles = Directory.GetFiles(outputFolder, dplFileMasks[(int)xmlFileType]);            //переменная по свойствам диспансеризации
+            string[] dFiles = Directory.GetFiles(outputFolder, dFileMasks[(int)xmlFileType]);            //переменная по свойствам диспансеризации
             string[] lFiles = Directory.GetFiles(outputFolder, lFileMask);                                  //переменная по данным пациентов
 
-            String dplFileFirst = dplFiles.First();
-            String lFileFirst = dplFiles.First();
-            if (String.IsNullOrEmpty(dplFileFirst) || String.IsNullOrEmpty(lFileFirst))
+            String dFileFirst = dFiles.First();
+            String lFileFirst = dFiles.First();
+            if (String.IsNullOrEmpty(dFileFirst) || String.IsNullOrEmpty(lFileFirst))
                 return;
 
-            String dplFileName = Path.GetFileName(dplFileFirst);
+            String dplFileName = Path.GetFileName(dFileFirst);
             String lpuMO = Path.GetFileNameWithoutExtension(outputDirectory);
 
             int lpuId = 0;
@@ -148,10 +150,10 @@ namespace XMLtoCSVconvertor
                 return;
 
             //объединяем 2 XML в 1
-            XDocument xdoc1 = XDocument.Load(dplFiles.First());
-            XDocument xdoc2 = XDocument.Load(lFiles.First());
+            XDocument dXDoc = XDocument.Load(dFiles.First());
+            XDocument lXDoc = XDocument.Load(lFiles.First());
             //Берем данные из первого XML               
-            var data1 = xdoc1.Root.Elements("ZAP")
+            var dData = dXDoc.Root.Elements("ZAP")
                 .Select(x => new
                 {
                     Disp = (string)x.Element("DISP"),
@@ -164,7 +166,7 @@ namespace XMLtoCSVconvertor
                 });
 
             //Берем данные из второго XML
-            var data2 = xdoc2.Root.Elements("PERS")
+            var lData = lXDoc.Root.Elements("PERS")
                 .Select(x => new
                 {
                     PacientId = (string)x.Element("ID_PAC"),
@@ -173,67 +175,157 @@ namespace XMLtoCSVconvertor
                     MiddleName = (string)x.Element("OT"),
                     Birthdate = (string)x.Element("DR"),
                     Sex = (int)x.Element("W")
-                });
+                })
+                .ToList()
+                .Distinct();
 
             //Сохраняем данные из первых двух XML в третий
-            var data3 = data2.Join(data1, outer => outer.PacientId, inner => inner.PacientId, (outer, inner) => new { Data1 = inner, Data2 = outer });
-            XDocument doc = new XDocument(
+            var resultData = dData
+                .Join(lData, outerL => outerL.PacientId, innerD => innerD.PacientId, (innerD, outerL) => new { outerL, innerD });
+            XDocument resultDoc = new XDocument(
                 new XDeclaration("1.0", "utf-8", "yes"),
-                new XElement("Data", data3.Select(x => new XElement("Item",
-                            new XElement("FAM", x.Data2.LastName),
-                            new XElement("IM", x.Data2.FirstName),
-                            new XElement("OT", x.Data2.MiddleName),
-                            new XElement("DR", x.Data2.Birthdate),
-                            new XElement("W", x.Data2.Sex),
-                            new XElement("ID_PAC", x.Data2.PacientId),
-                            new XElement("DISP", x.Data1.Disp),
-                            new XElement("QUARTER", x.Data1.Quarter),
-                            new XElement("MONTH", x.Data1.Month),
-                            new XElement("DS", x.Data1.DS),
-                            new XElement("DATE_START", x.Data1.DateStart),
-                            new XElement("DATE_END", x.Data1.DateEnd)
+                new XElement("Data", resultData.Select(res => new XElement("Item",
+                            new XElement("FAM", res.outerL.LastName),
+                            new XElement("IM", res.outerL.FirstName),
+                            new XElement("OT", res.outerL.MiddleName),
+                            new XElement("DR", res.outerL.Birthdate),
+                            new XElement("W", res.outerL.Sex),
+                            new XElement("ID_PAC", res.innerD.PacientId),
+                            new XElement("DISP", res.innerD.Disp),
+                            new XElement("QUARTER", res.innerD.Quarter),
+                            new XElement("MONTH", res.innerD.Month),
+                            new XElement("DS", res.innerD.DS),
+                            new XElement("DATE_START", res.innerD.DateStart),
+                            new XElement("DATE_END", res.innerD.DateEnd)
                         )
                     )
                 )
             );
             String resultXmlFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, ".xml"));
-            doc.Save(resultXmlFilePath);
+            resultDoc.Save(resultXmlFilePath);
+
+            var lDataHash = new HashSet<string>(lData.Select(l => l.PacientId));
+            var noResultData = dData
+                .Where(d => !lDataHash.Contains(d.PacientId))
+                .ToList();
+            XDocument noResultDoc = new XDocument(
+                new XDeclaration("1.0", "utf-8", "yes"),
+                new XElement("Data", noResultData.Select(res => new XElement("Item",
+                            new XElement("ID_PAC", res.PacientId),
+                            new XElement("DISP", res.Disp),
+                            new XElement("QUARTER", res.Quarter),
+                            new XElement("MONTH", res.Month),
+                            new XElement("DS", res.DS),
+                            new XElement("DATE_START", res.DateStart),
+                            new XElement("DATE_END", res.DateEnd)
+                        )
+                    )
+                )
+            );
+            String noResultXmlFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, "_missed.xml"));
+            noResultDoc.Save(noResultXmlFilePath);
 
             //конвертируем объединенный XML в CSV
-            StringBuilder sb = new StringBuilder();
             string delimiter = ";";                                                                 //разделитель
-            string resultCsvFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, ".csv"));
-            XDocument.Load(resultXmlFilePath).Descendants("Item").ToList().ForEach(element => sb.Append(
-                element.Element("FAM").Value + delimiter +
-                element.Element("IM").Value + delimiter +
-                element.Element("OT").Value + delimiter +
-                element.Element("DR").Value + delimiter +
-                element.Element("W").Value + delimiter +
-                element.Element("QUARTER").Value + delimiter +
-                element.Element("MONTH").Value + delimiter +
-                element.Element("DISP").Value + delimiter +
-                element.Element("DS").Value + delimiter +
-                element.Element("DATE_START").Value + delimiter +
-                element.Element("DATE_END").Value + delimiter +
-                LPUs[lpuId] + delimiter +
-                lpuId + "\r\n")
-            );
+            StringBuilder sbResult = new StringBuilder();
+            var elements = XDocument
+                .Load(resultXmlFilePath)
+                .Descendants("Item");
+            elements
+                .Where(element => (2019 - DateTime.Parse(element.Element("DR").Value).Year) >= 18)
+                .ToList()
+                .ForEach(element => sbResult.Append(
+                    element.Element("FAM").Value + delimiter +
+                    element.Element("IM").Value + delimiter +
+                    element.Element("OT").Value + delimiter +
+                    element.Element("DR").Value + delimiter +
+                    element.Element("W").Value + delimiter +
+                    element.Element("QUARTER").Value + delimiter +
+                    element.Element("MONTH").Value + delimiter +
+                    element.Element("DISP").Value + delimiter +
+                    element.Element("DS").Value + delimiter +
+                    element.Element("DATE_START").Value + delimiter +
+                    element.Element("DATE_END").Value + delimiter +
+                    LPUs[lpuId] + delimiter +
+                    lpuId + "\r\n")
+                );
+            String[] inputArray = sbResult
+                .ToString()
+                .Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-            StreamWriter sw = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
-            sw.WriteLine(fileHeader);
-            String input = sb.ToString();
-            String[] inputArray = input.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-            String[] distinctInputArray = inputArray.Distinct().ToArray();
-            StringBuilder result = new StringBuilder();
-            foreach (String s in distinctInputArray)
+            StringBuilder results = new StringBuilder();
+            foreach (String s in inputArray.Distinct().ToArray())
             {
-                result.Append(s);
-                result.Append("\r\n");
+                results.Append(s);
+                results.Append("\r\n");
             }
-            sw.Write(result.ToString());
-            sw.Close();
 
-            swAll[(int)xmlFileType].Write(result.ToString());
+            string resultCsvFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, ".csv"));
+            StreamWriter swResult = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
+            swResult.WriteLine(fileHeader);
+            swResult.Write(results.ToString());
+            swResult.Close();
+
+            swResultAll[(int)xmlFileType].Write(results.ToString());
+
+
+            StringBuilder sbResultChildren = new StringBuilder();
+            elements
+                .Where(element => (2019 - DateTime.Parse(element.Element("DR").Value).Year) < 18)
+                .ToList()
+                .ForEach(element => sbResultChildren.Append(
+                    element.Element("FAM").Value + delimiter +
+                    element.Element("IM").Value + delimiter +
+                    element.Element("OT").Value + delimiter +
+                    element.Element("DR").Value + delimiter +
+                    element.Element("W").Value + delimiter +
+                    element.Element("QUARTER").Value + delimiter +
+                    element.Element("MONTH").Value + delimiter +
+                    element.Element("DISP").Value + delimiter +
+                    element.Element("DS").Value + delimiter +
+                    element.Element("DATE_START").Value + delimiter +
+                    element.Element("DATE_END").Value + delimiter +
+                    LPUs[lpuId] + delimiter +
+                    lpuId + "\r\n")
+                );
+            String[] inputArrayChildren = sbResultChildren
+                .ToString()
+                .Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            results.Clear();
+            foreach (String s in inputArrayChildren)
+            {
+                results.Append(s);
+                results.Append("\r\n");
+            }
+            string resultCsvChildrenDetFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, "_children.csv"));
+            StreamWriter swResultChildren = new StreamWriter(resultCsvChildrenDetFilePath, false, Encoding.GetEncoding("Windows-1251"));
+            swResultChildren.WriteLine(fileHeader);
+            swResultChildren.Write(results.ToString());
+            swResultChildren.Close();
+
+
+            var inputArrayDuplicates = inputArray
+                .GroupBy(p => p)
+                .Where(g => g.Count() > 1)
+                .Select(g => new
+                {
+                    Str = g.Key,
+                    Count = g.Count()
+                })
+                .ToArray();
+
+            results.Clear();
+            foreach (var s in inputArrayDuplicates)
+            {
+                results.Append(s.Str + delimiter + s.Count);
+                results.Append("\r\n");
+            }
+            string resultCsvDuplicatesFilePath = Path.Combine(outputFolder, String.Concat(lpuMO, "_duplicates.csv"));
+            StreamWriter swDuplicates = new StreamWriter(resultCsvDuplicatesFilePath, false, Encoding.GetEncoding("Windows-1251"));
+            swDuplicates.WriteLine(string.Format("{0};Дубликаты", fileHeader));
+            swDuplicates.Write(results.ToString());
+            swDuplicates.Close();
 
             ////Удаляем xml-файлы в папке
             //string[] fileNames = Directory.GetFiles(outputFolder, "*.xml", SearchOption.AllDirectories);
