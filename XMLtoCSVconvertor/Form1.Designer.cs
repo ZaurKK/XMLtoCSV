@@ -39,7 +39,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(423, 42);
+            this.label1.Location = new System.Drawing.Point(12, 56);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(239, 13);
             this.label1.TabIndex = 4;
@@ -48,7 +48,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(423, 16);
+            this.label2.Location = new System.Drawing.Point(12, 9);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(227, 13);
             this.label2.TabIndex = 5;
@@ -56,7 +56,7 @@
             // 
             // buttonRun
             // 
-            this.buttonRun.Location = new System.Drawing.Point(299, 64);
+            this.buttonRun.Location = new System.Drawing.Point(118, 102);
             this.buttonRun.Name = "buttonRun";
             this.buttonRun.Size = new System.Drawing.Size(75, 23);
             this.buttonRun.TabIndex = 6;
@@ -67,26 +67,26 @@
             // outputFolderTextBoxButton
             // 
             this.outputFolderTextBoxButton.ButtonText = "...";
-            this.outputFolderTextBoxButton.Location = new System.Drawing.Point(12, 38);
+            this.outputFolderTextBoxButton.Location = new System.Drawing.Point(15, 72);
             this.outputFolderTextBoxButton.Name = "outputFolderTextBoxButton";
-            this.outputFolderTextBoxButton.Size = new System.Drawing.Size(405, 20);
+            this.outputFolderTextBoxButton.Size = new System.Drawing.Size(281, 20);
             this.outputFolderTextBoxButton.TabIndex = 8;
-            this.outputFolderTextBoxButton.Text = "D:\\Data\\Диспансеризация\\2019\\Списки от МО\\22.11.2019\\";
+            this.outputFolderTextBoxButton.Text = "D:\\Data\\Диспансеризация\\2020\\Списки\\";
             // 
             // inputFolderTextBoxButton
             // 
             this.inputFolderTextBoxButton.ButtonText = "...";
-            this.inputFolderTextBoxButton.Location = new System.Drawing.Point(12, 12);
+            this.inputFolderTextBoxButton.Location = new System.Drawing.Point(15, 25);
             this.inputFolderTextBoxButton.Name = "inputFolderTextBoxButton";
-            this.inputFolderTextBoxButton.Size = new System.Drawing.Size(405, 20);
+            this.inputFolderTextBoxButton.Size = new System.Drawing.Size(281, 20);
             this.inputFolderTextBoxButton.TabIndex = 7;
-            this.inputFolderTextBoxButton.Text = "\\\\mainserver\\vipnetprocess\\prof2019\\";
+            this.inputFolderTextBoxButton.Text = "\\\\mainserver\\vipnetprocess\\prof2020\\";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(672, 93);
+            this.ClientSize = new System.Drawing.Size(309, 135);
             this.Controls.Add(this.outputFolderTextBoxButton);
             this.Controls.Add(this.inputFolderTextBoxButton);
             this.Controls.Add(this.buttonRun);

@@ -27,14 +27,36 @@ namespace XMLtoCSVconvertor
             "2019-10-09 09:48:12,DNPLM070510S0700401.ZIP,4f19bd34111d3d72b1dc1a465c9b58c4,md5_file (php)"
         };
 
-        private static int YEAR = 2019;
+        private static int YEAR = 2020;
         private static int MIN_AGE = 18;
+
+        public enum XmlFileType
+        {
+            D = 0,
+            DN = 1
+        };
+
+        public enum DispType
+        {
+            DV4,
+            OPV,
+            DN1,
+            DN2
+        };
+
+        public Dictionary<DispType, string> DispTypeString =  new Dictionary<DispType, string>
+        {
+            { DispType.DV4, "ДВ4" },
+            { DispType.OPV, "ОПВ" },
+            { DispType.DN1, "ДН1" },
+            { DispType.DN2, "ДН2" }
+        };
 
         private static string delimiter = ";";
 
         private static string rootFileMask = string.Format("07*_{0}.zip", YEAR);
 
-        public static Dictionary<int, String> LPUs = new Dictionary<int, string>()
+        public static Dictionary<int, string> LPUs = new Dictionary<int, string>()
         {
             { 70510, "ГП 1 г.Нальчик" },
             { 70570, "ГП 2 г.Нальчик" },
@@ -52,12 +74,6 @@ namespace XMLtoCSVconvertor
             { 71106, "УБ с.Эльбрус" }
         };
 
-        public enum XmlFileType
-        {
-            D = 0,
-            DN = 1
-        };
-
         private static string[] dArchiveMasks =
         {
             "DPL*.zip",
@@ -72,91 +88,70 @@ namespace XMLtoCSVconvertor
 
         private string lFileMask = "LM*.XML";
 
-        private static string[] csvFileNamesFullTemp =
+        private static string resultFolder = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+        private static string[] csvFileNamesFull =
         {
             "M_D_Full.csv",
             "M_DN_Full.csv"
         };
 
-        private static string[] csvFileNamesFull =
-        {
-            string.Format("{0}_{1}.csv", "M_D_Full", DateTime.Now.ToString("yyyyMMdd_HHmm")),
-            string.Format("{0}_{1}.csv", "M_DN_Full", DateTime.Now.ToString("yyyyMMdd_HHmm"))
-        };
-
-        private static string[] csvFileNamesAllTemp =
+        private static string[] csvFileNamesAll =
         {
             "M_D_All.csv",
             "M_DN_All.csv"
         };
 
-        private static string[] csvFileNamesAll =
-        {
-            string.Format("{0}_{1}.csv", "M_D_All", DateTime.Now.ToString("yyyyMMdd_HHmm")),
-            string.Format("{0}_{1}.csv", "M_DN_All", DateTime.Now.ToString("yyyyMMdd_HHmm"))
-        };
-
-        private static string[] csvFileNamesChildrenTemp =
+        private static string[] csvFileNamesChildren =
         {
             "M_D_Children.csv",
             "M_DN_Children.csv"
         };
 
-        private static string[] csvFileNamesChildren =
-        {
-            string.Format("{0}_{1}.csv", "M_D_Children", DateTime.Now.ToString("yyyyMMdd_HHmm")),
-            string.Format("{0}_{1}.csv", "M_DN_Children", DateTime.Now.ToString("yyyyMMdd_HHmm"))
-        };
-
-        private static string[] csvFileNamesDuplicatesTemp =
+        private static string[] csvFileNamesDuplicates =
         {
             "M_D_Duplicates.csv",
             "M_DN_Duplicates.csv"
         };
 
-        private static string[] csvFileNamesDuplicates =
-        {
-            string.Format("{0}_{1}.csv", "M_D_Duplicates", DateTime.Now.ToString("yyyyMMdd_HHmm")),
-            string.Format("{0}_{1}.csv", "M_DN_Duplicates", DateTime.Now.ToString("yyyyMMdd_HHmm"))
-        };
-
         private static string fileHeader = string.Format("Фамилия;Имя;Отчество;Дата рождения;Пол;Квартал;Месяц;Тип диспансеризации;Диагноз;Дата начала;Дата конца;ЛПУ;Комментарий");
         private static string fileHeaderDuplicates = string.Format("{0};Дубликаты", fileHeader);
 
-        private static StreamWriter[] swResultFull = new StreamWriter[2];
-        private static StreamWriter[] swResultAll = new StreamWriter[2];
-        private static StreamWriter[] swResultChildrenAll = new StreamWriter[2];
-        private static StreamWriter[] swResultDuplicatesAll = new StreamWriter[2];
+        private static readonly StreamWriter[] swResultFull = new StreamWriter[2];
+        private static readonly StreamWriter[] swResultAll = new StreamWriter[2];
+        private static readonly StreamWriter[] swResultChildrenAll = new StreamWriter[2];
+        private static readonly StreamWriter[] swResultDuplicatesAll = new StreamWriter[2];
 
         public bool ProcessFiles(string inputPath, string outputPath)
         {
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
+            string outputCsvPath = Path.Combine(outputPath, resultFolder);
+            Directory.CreateDirectory(outputCsvPath);
 
             for (int i = 0; i < Enum.GetNames(typeof(XmlFileType)).Length; i++)
             {
-                string outputFilePath = Path.Combine(outputPath, csvFileNamesFull[i]);
+                string outputFilePath = Path.Combine(outputCsvPath, csvFileNamesFull[i]);
                 swResultFull[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
                 swResultFull[i].WriteLine(fileHeader);
 
-                outputFilePath = Path.Combine(outputPath, csvFileNamesAll[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesAll[i]);
                 swResultAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
                 swResultAll[i].WriteLine(fileHeader);
 
-                outputFilePath = Path.Combine(outputPath, csvFileNamesChildren[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesChildren[i]);
                 swResultChildrenAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
                 swResultChildrenAll[i].WriteLine(fileHeader);
 
-                outputFilePath = Path.Combine(outputPath, csvFileNamesDuplicates[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesDuplicates[i]);
                 swResultDuplicatesAll[i] = new StreamWriter(outputFilePath, true, Encoding.GetEncoding("Windows-1251"));
                 swResultDuplicatesAll[i].WriteLine(fileHeaderDuplicates);
             }
 
-            //var rootArchives = Directory.GetFiles(folderBrowserDialog.SelectedPath, rootFileMask);
             var rootArchives = Directory.GetFiles(inputPath, rootFileMask);
             foreach (var rootArchive in rootArchives)
             {
-                string outputDirectory = Path.Combine(outputPath, Path.GetFileNameWithoutExtension(rootArchive));
+                string outputDirectory = Path.Combine(outputCsvPath, Path.GetFileNameWithoutExtension(rootArchive));
                 if (Directory.Exists(outputDirectory))
                     Directory.Delete(outputDirectory, true);
                 ZipFile.ExtractToDirectory(rootArchive, outputDirectory);
@@ -170,23 +165,23 @@ namespace XMLtoCSVconvertor
             for (int i = 0; i < Enum.GetNames(typeof(XmlFileType)).Length; i++)
             {
                 swResultFull[i].Close();
-                string outputFilePath = Path.Combine(outputPath, csvFileNamesFull[i]);
-                string outputFilePathTemp = Path.Combine(outputPath, csvFileNamesFullTemp[i]);
+                string outputFilePath = Path.Combine(outputCsvPath, csvFileNamesFull[i]);
+                string outputFilePathTemp = Path.Combine(outputPath, csvFileNamesFull[i]);
                 System.IO.File.Copy(outputFilePath, outputFilePathTemp, true);
 
                 swResultAll[i].Close();
-                outputFilePath = Path.Combine(outputPath, csvFileNamesAll[i]);
-                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesAllTemp[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesFull[i]);
+                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesAll[i]);
                 System.IO.File.Copy(outputFilePath, outputFilePathTemp, true);
 
                 swResultChildrenAll[i].Close();
-                outputFilePath = Path.Combine(outputPath, csvFileNamesChildren[i]);
-                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesChildrenTemp[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesFull[i]);
+                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesChildren[i]);
                 System.IO.File.Copy(outputFilePath, outputFilePathTemp, true);
 
                 swResultDuplicatesAll[i].Close();
-                outputFilePath = Path.Combine(outputPath, csvFileNamesDuplicates[i]);
-                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesDuplicatesTemp[i]);
+                outputFilePath = Path.Combine(outputCsvPath, csvFileNamesFull[i]);
+                outputFilePathTemp = Path.Combine(outputPath, csvFileNamesDuplicates[i]);
                 System.IO.File.Copy(outputFilePath, outputFilePathTemp, true);
             }
 
@@ -368,7 +363,7 @@ namespace XMLtoCSVconvertor
 
             StringBuilder sbResultChildren = new StringBuilder();
             elements
-                .Where(element => (YEAR - DateTime.Parse(element.Element("DR").Value).Year) < MIN_AGE)
+                .Where(element => element.Element("DISP").Value.Equals(DispTypeString[DispType.DN1]) && (YEAR - DateTime.Parse(element.Element("DR").Value).Year) < MIN_AGE)
                 .ToList()
                 .ForEach(element => sbResultChildren.Append(
                     element.Element("FAM").Value + delimiter +
