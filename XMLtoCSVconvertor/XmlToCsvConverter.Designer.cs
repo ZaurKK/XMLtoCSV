@@ -1,6 +1,6 @@
 ﻿namespace XMLtoCSVconvertor
 {
-    partial class Form1
+    partial class XmlToCsvConverter
     {
         /// <summary>
         /// Требуется переменная конструктора.
@@ -32,8 +32,10 @@
             this.label2 = new System.Windows.Forms.Label();
             this.folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
             this.buttonRun = new System.Windows.Forms.Button();
-            this.outputFolderTextBoxButton = new XMLtoCSVconvertor.TextBoxButton();
-            this.inputFolderTextBoxButton = new XMLtoCSVconvertor.TextBoxButton();
+            this.inputFolderButtonEdit = new DevExpress.XtraEditors.ButtonEdit();
+            this.outputFolderButtonEdit = new DevExpress.XtraEditors.ButtonEdit();
+            ((System.ComponentModel.ISupportInitialize)(this.inputFolderButtonEdit.Properties)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.outputFolderButtonEdit.Properties)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
@@ -64,36 +66,42 @@
             this.buttonRun.UseVisualStyleBackColor = true;
             this.buttonRun.Click += new System.EventHandler(this.buttonRun_Click);
             // 
-            // outputFolderTextBoxButton
+            // inputFolderButtonEdit
             // 
-            this.outputFolderTextBoxButton.ButtonText = "...";
-            this.outputFolderTextBoxButton.Location = new System.Drawing.Point(15, 72);
-            this.outputFolderTextBoxButton.Name = "outputFolderTextBoxButton";
-            this.outputFolderTextBoxButton.Size = new System.Drawing.Size(281, 20);
-            this.outputFolderTextBoxButton.TabIndex = 8;
-            this.outputFolderTextBoxButton.Text = "D:\\Data\\Диспансеризация\\2020\\Списки\\";
+            this.inputFolderButtonEdit.EditValue = "\\\\mainserver\\vipnetprocess\\prof2020\\";
+            this.inputFolderButtonEdit.Location = new System.Drawing.Point(15, 25);
+            this.inputFolderButtonEdit.Name = "inputFolderButtonEdit";
+            this.inputFolderButtonEdit.Properties.Buttons.AddRange(new DevExpress.XtraEditors.Controls.EditorButton[] {
+            new DevExpress.XtraEditors.Controls.EditorButton()});
+            this.inputFolderButtonEdit.Size = new System.Drawing.Size(281, 20);
+            this.inputFolderButtonEdit.TabIndex = 9;
+            this.inputFolderButtonEdit.ButtonClick += new DevExpress.XtraEditors.Controls.ButtonPressedEventHandler(this.BrowseFolderButtonEdit_ButtonClick);
             // 
-            // inputFolderTextBoxButton
+            // outputFolderButtonEdit
             // 
-            this.inputFolderTextBoxButton.ButtonText = "...";
-            this.inputFolderTextBoxButton.Location = new System.Drawing.Point(15, 25);
-            this.inputFolderTextBoxButton.Name = "inputFolderTextBoxButton";
-            this.inputFolderTextBoxButton.Size = new System.Drawing.Size(281, 20);
-            this.inputFolderTextBoxButton.TabIndex = 7;
-            this.inputFolderTextBoxButton.Text = "\\\\mainserver\\vipnetprocess\\prof2020\\";
+            this.outputFolderButtonEdit.EditValue = "D:\\Data\\Диспансеризация\\2020\\Списки\\";
+            this.outputFolderButtonEdit.Location = new System.Drawing.Point(15, 72);
+            this.outputFolderButtonEdit.Name = "outputFolderButtonEdit";
+            this.outputFolderButtonEdit.Properties.Buttons.AddRange(new DevExpress.XtraEditors.Controls.EditorButton[] {
+            new DevExpress.XtraEditors.Controls.EditorButton()});
+            this.outputFolderButtonEdit.Size = new System.Drawing.Size(281, 20);
+            this.outputFolderButtonEdit.TabIndex = 10;
+            this.outputFolderButtonEdit.ButtonClick += new DevExpress.XtraEditors.Controls.ButtonPressedEventHandler(this.BrowseFolderButtonEdit_ButtonClick);
             // 
-            // Form1
+            // XmlToCsvConverter
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(309, 135);
-            this.Controls.Add(this.outputFolderTextBoxButton);
-            this.Controls.Add(this.inputFolderTextBoxButton);
+            this.Controls.Add(this.outputFolderButtonEdit);
+            this.Controls.Add(this.inputFolderButtonEdit);
             this.Controls.Add(this.buttonRun);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
-            this.Name = "Form1";
-            this.Text = "Form1";
+            this.Name = "XmlToCsvConverter";
+            this.Text = "Конвертер XML в CSV";
+            ((System.ComponentModel.ISupportInitialize)(this.inputFolderButtonEdit.Properties)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.outputFolderButtonEdit.Properties)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -103,9 +111,9 @@
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Button buttonRun;
-        private TextBoxButton inputFolderTextBoxButton;
-        private TextBoxButton outputFolderTextBoxButton;
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog;
+        private DevExpress.XtraEditors.ButtonEdit inputFolderButtonEdit;
+        private DevExpress.XtraEditors.ButtonEdit outputFolderButtonEdit;
     }
 }
 

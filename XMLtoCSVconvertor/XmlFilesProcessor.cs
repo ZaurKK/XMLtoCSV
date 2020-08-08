@@ -13,34 +13,6 @@ namespace XMLtoCSVconvertor
 {
     class XmlFilesProcessor
     {
-        private static readonly string[] hashStrings =
-        {
-            "2019-12-28 16:43:37,DPLM070201S0700401.ZIP,d81429be8552c70d091abf06b254b5a1,md5_file (php)",
-            "2019-12-28 16:43:51,DNPLM070201S0700401.ZIP,ffcf606259a2c03cba60803ec2f4936b,md5_file (php)",
-            "2019-12-30 09:35:13,DPLM070807S0700401.ZIP,633c3b10dbb4221e446bac17ffbfa9ec,md5_file (php)",
-            "2019-12-30 09:35:13,DNPLM070807S0700401.ZIP,bff68ff0595d6dba06020059887d5df8,md5_file (php)",
-            "2019-12-14 01:41:47,DPLM070906S0700401.ZIP,398c63db858aef03e0b166cc4c66e540,md5_file (php)",
-            "2019-12-14 01:41:47,DNPLM070906S0700401.ZIP,ce6febead7fff3f03f803daa43901f27,md5_file (php)",
-            "2019-12-29 14:00:03,DPLM070103S0700401.ZIP,b4d26ab594f1f707cbf147007f928472,md5_file (php)",
-            "2019-12-29 14:00:31,DNPLM070103S0700401.ZIP,bb306713d9537e8a2e93e790767713c6,md5_file (php)",
-            "2019-12-26 06:11:07,DPLM070105S0700401.ZIP,ae00f4d89b556f881809e0bad2302599,md5_file (php)",
-            "2019-12-26 06:11:15,DNPLM070105S0700401.ZIP,c7d657154713bdc3ffc35ca1baec9135,md5_file (php)",
-            "2019-12-28 16:25:48,DPLM070616S0700401.ZIP,d732dbf8b176d7c9110d3222a28866b5,md5_file (php)",
-            "2019-12-28 16:25:48,DNPLM070616S0700401.ZIP,ec58b4278b0c0e854d7e3200dfd2ad83,md5_file (php)",
-            "2019-12-30 10:14:19,DPLM071103S0700401.ZIP,4b9d727f79ac71a555db783a243590ad,md5_file (php)",
-            "2019-12-30 10:14:27,DNPLM071103S0700401.ZIP,169f6c69ae3b82643713eea46ffbd0aa,md5_file (php)",
-            "2019-10-03 14:48:11,DPLM071001S0700401.ZIP,0b9138aa73839e07255e3433e2b78b65,md5_file (php)",
-            "2019-10-03 14:48:15,DNPLM071001S0700401.ZIP,fb1d93a48f6fc23e5c30fbe1680202b0,md5_file (php)",
-            "2019-12-24 12:05:07,DPLM070571S0700401.ZIP,dce9be0e8087561faade085b74c9658d,md5_file (php)",
-            "2019-12-24 12:05:23,DNPLM070571S0700401.ZIP,8e261965e7088a8d3ed976c9c9045278,md5_file (php)",
-            "2019-12-12 10:02:09,DPLM070510S0700401.ZIP,c70eb045250967993f484934546a208f,md5_file (php)",
-            "2019-12-12 10:02:09,DNPLM070510S0700401.ZIP,2748251e4006d7d3b2775610dd04b9ad,md5_file (php)",
-            "2019-12-28 17:22:45,DPLM070405S0700401.ZIP,916e428b92899c34ca2e24d54d3fa7f6,md5_file (php)",
-            "2019-12-28 17:22:47,DNPLM070405S0700401.ZIP,e88443a1aa924fecfc8c2af7644f9e5c,md5_file (php)",
-            "2019-12-29 14:40:42,DPLM070714S0700401.ZIP,b4e63ea97f665864daaa80bad41eaea8,md5_file (php)",
-            "2019-12-29 14:40:43,DNPLM070714S0700401.ZIP,2c640ae8e3fbf9efa7f5dccb8536f2cc,md5_file (php)"
-        };
-
         private static int YEAR = 2020;
         private static int MIN_AGE = 18;
 
@@ -148,6 +120,8 @@ namespace XMLtoCSVconvertor
         private static readonly Dictionary<XmlFileType, StreamWriter> swResultChildrenAll = new Dictionary<XmlFileType, StreamWriter>(Enum.GetNames(typeof(XmlFileType)).Length);
         private static readonly Dictionary<XmlFileType, StreamWriter> swResultDuplicatesAll = new Dictionary<XmlFileType, StreamWriter>(Enum.GetNames(typeof(XmlFileType)).Length);
 
+        HashList HashList { get; set; } = new HashList();
+
         public bool ProcessFiles(string inputPath, string outputPath)
         {
             if (!Directory.Exists(outputPath))
@@ -183,9 +157,9 @@ namespace XMLtoCSVconvertor
                 ZipFile.ExtractToDirectory(rootArchive, outputDirectory);
 
                 if (!ProcessXmlFiles(outputDirectory, XmlFileType.D))
-                    return false;
+                    continue;
                 if (!ProcessXmlFiles(outputDirectory, XmlFileType.DN))
-                    return false;
+                    continue;
             }
 
             foreach (XmlFileType xmlFileType in Enum.GetValues(typeof(XmlFileType)))
@@ -217,7 +191,7 @@ namespace XMLtoCSVconvertor
         public bool ProcessXmlFiles(string outputDirectory, XmlFileType xmlFileType)
         {
             string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[xmlFileType]).FirstOrDefault();
-            if (string.IsNullOrEmpty(archiveFile))
+            if (!HashList.IsFileValid(archiveFile))
                 return false;
             string outputFolder = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(archiveFile));
 
