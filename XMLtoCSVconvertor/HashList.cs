@@ -98,7 +98,7 @@ namespace XMLtoCSVconvertor
 
     public class HashList
     {
-        DateTime MinDateTime { get; set; } = new DateTime(2020, 07, 27);
+        DateTime MinDateTime { get; set; } = new DateTime(2020, 09, 03);
         private List<HashData> HashDataList { get; set; } = new List<HashData>();
 
         public HashList()
@@ -142,9 +142,9 @@ namespace XMLtoCSVconvertor
                 return false;
 
             var stream = File.OpenRead(filePath);
-            var md5Hash = HashData.VerifyMd5Hash(stream, hashData.HashString);
+            var validMD5Hash = HashData.VerifyMd5Hash(stream, hashData.HashString);
             stream.Close();
-            return md5Hash;
+            return validMD5Hash;
         }
     }
 }
