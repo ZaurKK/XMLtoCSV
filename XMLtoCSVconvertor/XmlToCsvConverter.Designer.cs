@@ -68,7 +68,7 @@
             // 
             // inputFolderButtonEdit
             // 
-            this.inputFolderButtonEdit.EditValue = "\\\\mainserver\\vipnetprocess\\prof2020\\";
+            this.inputFolderButtonEdit.EditValue = "\\\\mainserver\\vipnetprocess\\prof2021\\";
             this.inputFolderButtonEdit.Location = new System.Drawing.Point(15, 25);
             this.inputFolderButtonEdit.Name = "inputFolderButtonEdit";
             this.inputFolderButtonEdit.Properties.Buttons.AddRange(new DevExpress.XtraEditors.Controls.EditorButton[] {
@@ -79,7 +79,7 @@
             // 
             // outputFolderButtonEdit
             // 
-            this.outputFolderButtonEdit.EditValue = "D:\\Data\\Диспансеризация\\2020\\Списки\\";
+            this.outputFolderButtonEdit.EditValue = "D:\\Data\\Диспансеризация\\2021\\Списки\\";
             this.outputFolderButtonEdit.Location = new System.Drawing.Point(15, 72);
             this.outputFolderButtonEdit.Name = "outputFolderButtonEdit";
             this.outputFolderButtonEdit.Properties.Buttons.AddRange(new DevExpress.XtraEditors.Controls.EditorButton[] {

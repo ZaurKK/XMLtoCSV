@@ -15,7 +15,7 @@ namespace XMLtoCSVconvertor
 {
     class XmlFilesProcessor
     {
-        private static int YEAR = 2020;
+        private static int YEAR = 2021;
         private static int MIN_AGE = 18;
 
         private static readonly string delimiter = ";";
@@ -120,8 +120,8 @@ namespace XMLtoCSVconvertor
             { XmlFileType.DN, "M_DN_Duplicates.csv" }
         };
 
-        private static string insertInto = "INSERT INTO ";
-        private static string insertValues = "([Фамилия], [Имя], [Отчество], [Дата рождения], [Пол], [Квартал], [Месяц], [Тип диспансеризации], [Диагноз], [Дата начала], [Дата конца], [ЛПУ], [Комментарий], [Год], [DateTimeOfAddition]) VALUES(";
+        private static readonly string insertInto = "INSERT INTO ";
+        private static readonly string insertValues = "([Фамилия], [Имя], [Отчество], [Дата рождения], [Пол], [Квартал], [Месяц], [Тип диспансеризации], [Диагноз], [Дата начала], [Дата конца], [ЛПУ], [Комментарий], [Год], [DateTimeOfAddition]) VALUES(";
         private static readonly Dictionary<XmlFileType, string> insertCommand = new Dictionary<XmlFileType, string>
         {
             { XmlFileType.D, $"{insertInto}{dPrefix[XmlFileType.D]}{insertValues}" },
@@ -172,10 +172,6 @@ namespace XMLtoCSVconvertor
                     Directory.Delete(outputDirectory, true);
                 ZipFile.ExtractToDirectory(rootArchive, outputDirectory);
 
-                //if (!ProcessXmlFiles(outputDirectory, XmlFileType.D))
-                //    continue;
-                //if (!ProcessXmlFiles(outputDirectory, XmlFileType.DN))
-                //    continue;
                 ProcessXmlFiles(outputDirectory, XmlFileType.D);
                 ProcessXmlFiles(outputDirectory, XmlFileType.DN);
             }
@@ -208,272 +204,264 @@ namespace XMLtoCSVconvertor
 
         public bool ProcessXmlFiles(string outputDirectory, XmlFileType xmlFileType)
         {
-            string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[xmlFileType]).FirstOrDefault();
-            if (!HashList.IsFileValid(archiveFile))
-                return false;
-            string outputFolder = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(archiveFile));
+            try
+            {
+                string archiveFile = Directory.GetFiles(outputDirectory, dArchiveMasks[xmlFileType]).FirstOrDefault();
+                if (!HashList.IsFileValid(archiveFile))
+                    return false;
+                string outputFolder = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(archiveFile));
 
-            ZipFile.ExtractToDirectory(archiveFile, outputFolder);
+                ZipFile.ExtractToDirectory(archiveFile, outputFolder);
 
-            string[] dFiles = Directory.GetFiles(outputFolder, dFileMasks[xmlFileType]);            //переменная по свойствам диспансеризации
-            string[] lFiles = Directory.GetFiles(outputFolder, lFileMask);                          //переменная по данным пациентов
+                string[] dFiles = Directory.GetFiles(outputFolder, dFileMasks[xmlFileType]);            //переменная по свойствам диспансеризации
+                string[] lFiles = Directory.GetFiles(outputFolder, lFileMask);                          //переменная по данным пациентов
 
-            string dFileFirst = dFiles.First();
-            string lFileFirst = lFiles.First();
-            if (string.IsNullOrEmpty(dFileFirst) || string.IsNullOrEmpty(lFileFirst))
-                return false;
+                string dFileFirst = dFiles.First();
+                string lFileFirst = lFiles.First();
+                if (string.IsNullOrEmpty(dFileFirst) || string.IsNullOrEmpty(lFileFirst))
+                    return false;
 
-            string dplFileName = Path.GetFileName(dFileFirst);
-            string lpuMO = Path.GetFileNameWithoutExtension(outputDirectory);
+                string dplFileName = Path.GetFileName(dFileFirst);
+                string lpuMO = Path.GetFileNameWithoutExtension(outputDirectory);
 
-            int lpuId = 0;
-            if (!int.TryParse(lpuMO.Substring(0, 6), out lpuId))
-                return false;
+                int lpuId = 0;
+                if (!int.TryParse(lpuMO.Substring(0, 6), out lpuId))
+                    return false;
 
-            //объединяем 2 XML в 1
-            XDocument dXDoc = XDocument.Load(dFiles.First());
-            XDocument lXDoc = XDocument.Load(lFiles.First());
-            //Берем данные из первого XML               
-            var dData = dXDoc.Root.Elements("ZAP")
-                .Select(x => new
-                {
-                    Disp = (string)x.Element("DISP"),
-                    PacientId = (string)x.Element("PACIENT").Element("ID_PAC"),
-                    Quarter = (string)x.Element("SLUCH").Element("QUARTER"),
-                    Month = (string)x.Element("SLUCH").Element("MONTH"),
-                    DS = (string)x.Element("SLUCH").Element("DS"),
-                    DateStart = (string)x.Element("SLUCH").Element("DATE_1"),
-                    DateEnd = (string)x.Element("SLUCH").Element("DATE_2")
-                });
+                //объединяем 2 XML в 1
+                XDocument dXDoc = XDocument.Load(dFiles.First());
+                XDocument lXDoc = XDocument.Load(lFiles.First());
+                //Берем данные из первого XML               
+                var dData = dXDoc.Root.Elements("ZAP")
+                    .Select(x => new
+                    {
+                        Disp = (string)x.Element("DISP"),
+                        PacientId = (string)x.Element("PACIENT").Element("ID_PAC"),
+                        Quarter = (string)x.Element("SLUCH").Element("QUARTER"),
+                        Month = (string)x.Element("SLUCH").Element("MONTH"),
+                        DS = (string)x.Element("SLUCH").Element("DS"),
+                        DateStart = (string)x.Element("SLUCH").Element("DATE_1"),
+                        DateEnd = (string)x.Element("SLUCH").Element("DATE_2")
+                    });
 
-            //Берем данные из второго XML
-            var lData = lXDoc.Root.Elements("PERS")
-                .Select(x => new
-                {
-                    PacientId = (string)x.Element("ID_PAC"),
-                    LastName = (string)x.Element("FAM"),
-                    FirstName = (string)x.Element("IM"),
-                    MiddleName = (string)x.Element("OT"),
-                    Birthdate = (string)x.Element("DR"),
-                    Sex = (int)x.Element("W")
-                })
-                .ToList()
-                .Distinct();
+                //Берем данные из второго XML
+                var lData = lXDoc.Root.Elements("PERS")
+                    .Select(x => new
+                    {
+                        PacientId = (string)x.Element("ID_PAC"),
+                        LastName = (string)x.Element("FAM"),
+                        FirstName = (string)x.Element("IM"),
+                        MiddleName = (string)x.Element("OT"),
+                        Birthdate = (string)x.Element("DR"),
+                        Sex = (int)x.Element("W")
+                    })
+                    .ToList()
+                    .Distinct();
 
-            //Сохраняем данные из первых двух XML в третий
-            var resultData = dData
-                .Join(lData, outerL => outerL.PacientId, innerD => innerD.PacientId, (innerD, outerL) => new { outerL, innerD });
-            XDocument resultDoc = new XDocument(
-                new XDeclaration("1.0", "utf-8", "yes"),
-                new XElement("Data", resultData.Select(res => new XElement("Item",
-                            new XElement("FAM", res.outerL.LastName),
-                            new XElement("IM", res.outerL.FirstName),
-                            new XElement("OT", res.outerL.MiddleName),
-                            new XElement("DR", res.outerL.Birthdate),
-                            new XElement("W", res.outerL.Sex),
-                            new XElement("ID_PAC", res.innerD.PacientId),
-                            new XElement("DISP", res.innerD.Disp),
-                            new XElement("QUARTER", res.innerD.Quarter),
-                            new XElement("MONTH", res.innerD.Month),
-                            new XElement("DS", res.innerD.DS),
-                            new XElement("DATE_START", res.innerD.DateStart),
-                            new XElement("DATE_END", res.innerD.DateEnd)
+                //Сохраняем данные из первых двух XML в третий
+                var resultData = dData
+                    .Join(lData, outerL => outerL.PacientId, innerD => innerD.PacientId, (innerD, outerL) => new { outerL, innerD });
+                XDocument resultDoc = new XDocument(
+                    new XDeclaration("1.0", "utf-8", "yes"),
+                    new XElement("Data", resultData.Select(res => new XElement("Item",
+                                new XElement("FAM", res.outerL.LastName),
+                                new XElement("IM", res.outerL.FirstName),
+                                new XElement("OT", res.outerL.MiddleName),
+                                new XElement("DR", res.outerL.Birthdate),
+                                new XElement("W", res.outerL.Sex),
+                                new XElement("ID_PAC", res.innerD.PacientId),
+                                new XElement("DISP", res.innerD.Disp),
+                                new XElement("QUARTER", res.innerD.Quarter),
+                                new XElement("MONTH", res.innerD.Month),
+                                new XElement("DS", res.innerD.DS),
+                                new XElement("DATE_START", res.innerD.DateStart),
+                                new XElement("DATE_END", res.innerD.DateEnd)
+                            )
                         )
                     )
-                )
-            );
-            string resultXmlFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, ".xml"));
-            resultDoc.Save(resultXmlFilePath);
+                );
+                string resultXmlFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, ".xml"));
+                resultDoc.Save(resultXmlFilePath);
 
-            var lDataHash = new HashSet<string>(lData.Select(l => l.PacientId));
-            var noResultData = dData
-                .Where(d => !lDataHash.Contains(d.PacientId))
-                .ToList();
-            XDocument noResultDoc = new XDocument(
-                new XDeclaration("1.0", "utf-8", "yes"),
-                new XElement("Data", noResultData.Select(res => new XElement("Item",
-                            new XElement("ID_PAC", res.PacientId),
-                            new XElement("DISP", res.Disp),
-                            new XElement("QUARTER", res.Quarter),
-                            new XElement("MONTH", res.Month),
-                            new XElement("DS", res.DS),
-                            new XElement("DATE_START", res.DateStart),
-                            new XElement("DATE_END", res.DateEnd)
+                var lDataHash = new HashSet<string>(lData.Select(l => l.PacientId));
+                var noResultData = dData
+                    .Where(d => !lDataHash.Contains(d.PacientId))
+                    .ToList();
+                XDocument noResultDoc = new XDocument(
+                    new XDeclaration("1.0", "utf-8", "yes"),
+                    new XElement("Data", noResultData.Select(res => new XElement("Item",
+                                new XElement("ID_PAC", res.PacientId),
+                                new XElement("DISP", res.Disp),
+                                new XElement("QUARTER", res.Quarter),
+                                new XElement("MONTH", res.Month),
+                                new XElement("DS", res.DS),
+                                new XElement("DATE_START", res.DateStart),
+                                new XElement("DATE_END", res.DateEnd)
+                            )
                         )
                     )
-                )
-            );
-            string noResultXmlFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_missed.xml"));
-            noResultDoc.Save(noResultXmlFilePath);
-
-            //конвертируем объединенный XML в CSV
-            var elements = XDocument
-                .Load(resultXmlFilePath)
-                .Descendants("Item");
-
-            StringBuilder sbResultComplete = new StringBuilder();
-            elements
-                .ToList()
-                .ForEach(element => sbResultComplete.Append(
-                    element.Element("FAM").Value + delimiter +
-                    element.Element("IM").Value + delimiter +
-                    element.Element("OT").Value + delimiter +
-                    element.Element("DR").Value + delimiter +
-                    element.Element("W").Value + delimiter +
-                    element.Element("QUARTER").Value + delimiter +
-                    element.Element("MONTH").Value + delimiter +
-                    element.Element("DISP").Value + delimiter +
-                    element.Element("DS").Value + delimiter +
-                    element.Element("DATE_START").Value + delimiter +
-                    element.Element("DATE_END").Value + delimiter +
-                    LPUs[lpuId] + delimiter +
-                    lpuId + Environment.NewLine)
                 );
-            string[] inputArrayComplete = sbResultComplete
-                .ToString()
-                .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-            StringBuilder resultComplete = new StringBuilder();
-            foreach (string s in inputArrayComplete.ToArray())
-            {
-                resultComplete.Append(s);
-                resultComplete.Append(Environment.NewLine);
-            }
-            swResultComplete[xmlFileType].Write(resultComplete.ToString());
+                string noResultXmlFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_missed.xml"));
+                noResultDoc.Save(noResultXmlFilePath);
 
+                //конвертируем объединенный XML в CSV
+                var elements = XDocument
+                    .Load(resultXmlFilePath)
+                    .Descendants("Item");
 
-            StringBuilder sbResultAll = new StringBuilder();
-            elements
-                .Where(element => (YEAR - DateTime.Parse(element.Element("DR").Value).Year) >= MIN_AGE)
-                .ToList()
-                .ForEach(element => sbResultAll.Append(
-                    element.Element("FAM").Value + delimiter +
-                    element.Element("IM").Value + delimiter +
-                    element.Element("OT").Value + delimiter +
-                    element.Element("DR").Value + delimiter +
-                    element.Element("W").Value + delimiter +
-                    element.Element("QUARTER").Value + delimiter +
-                    element.Element("MONTH").Value + delimiter +
-                    element.Element("DISP").Value + delimiter +
-                    element.Element("DS").Value + delimiter +
-                    element.Element("DATE_START").Value + delimiter +
-                    element.Element("DATE_END").Value + delimiter +
-                    LPUs[lpuId] + delimiter +
-                    lpuId + delimiter +
-                    $"{insertCommand[xmlFileType]}" +
-                    $"'{element.Element("FAM").Value}'," +
-                    $"'{element.Element("IM").Value}'," +
-                    $"'{element.Element("OT").Value}'," +
-                    $"'{element.Element("DR").Value}'," +
-                    $"'{element.Element("W").Value}'," +
-                    $"'{element.Element("QUARTER").Value}'," +
-                    $"'{element.Element("MONTH").Value}'," +
-                    $"'{element.Element("DISP").Value}'," +
-                    $"'{element.Element("DS").Value}'," +
-                    $"'{element.Element("DATE_START").Value}'," +
-                    $"'{element.Element("DATE_END").Value}'," +
-                    $"'{LPUs[lpuId]}'," +
-                    $"'{lpuId}'," +
-                    $"{YEAR}," +
-                    $"'{Process.GetCurrentProcess().StartTime:yyyy-MM-dd HH:mm}')" + 
-                    Environment.NewLine)
-                );
-            string[] inputArrayAll = sbResultAll
-                .ToString()
-                .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-
-            StringBuilder resultsAll = new StringBuilder();
-            foreach (string s in inputArrayAll.Distinct().ToArray())
-            {
-                resultsAll.Append(s);
-                resultsAll.Append(Environment.NewLine);
-            }
-            string resultCsvFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, ".csv"));
-            StreamWriter swResult = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
-            swResult.WriteLine(fileHeader);
-            swResult.Write(resultsAll.ToString());
-            swResult.Close();
-
-            swResultAll[xmlFileType].Write(resultsAll.ToString());
-
-
-            StringBuilder sbResultChildren = new StringBuilder();
-            elements
-                .Where(element => element.Element("DISP").Value.Equals(DispTypeString[DispType.DN1]) && (YEAR - DateTime.Parse(element.Element("DR").Value).Year) < MIN_AGE)
-                .ToList()
-                .ForEach(element => sbResultChildren.Append(
-                    element.Element("FAM").Value + delimiter +
-                    element.Element("IM").Value + delimiter +
-                    element.Element("OT").Value + delimiter +
-                    element.Element("DR").Value + delimiter +
-                    element.Element("W").Value + delimiter +
-                    element.Element("QUARTER").Value + delimiter +
-                    element.Element("MONTH").Value + delimiter +
-                    element.Element("DISP").Value + delimiter +
-                    element.Element("DS").Value + delimiter +
-                    element.Element("DATE_START").Value + delimiter +
-                    element.Element("DATE_END").Value + delimiter +
-                    LPUs[lpuId] + delimiter +
-                    lpuId + Environment.NewLine)
-                );
-            string[] inputArrayChildren = sbResultChildren
-                .ToString()
-                .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-
-            StringBuilder resultsChildrenAll = new StringBuilder();
-            foreach (string s in inputArrayChildren)
-            {
-                resultsChildrenAll.Append(s);
-                resultsChildrenAll.Append(Environment.NewLine);
-            }
-            string resultCsvChildrenDetFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_children.csv"));
-            StreamWriter swResultChildren = new StreamWriter(resultCsvChildrenDetFilePath, false, Encoding.GetEncoding("Windows-1251"));
-            swResultChildren.WriteLine(fileHeader);
-            swResultChildren.Write(resultsChildrenAll.ToString());
-            swResultChildren.Close();
-
-            swResultChildrenAll[xmlFileType].Write(resultsChildrenAll.ToString());
-
-
-            var inputArrayDuplicates = inputArrayAll
-                .GroupBy(p => p)
-                .Where(g => g.Count() > 1)
-                .Select(g => new
+                StringBuilder sbResultComplete = new StringBuilder();
+                elements
+                    .ToList()
+                    .ForEach(element => sbResultComplete.Append(
+                        element.Element("FAM").Value + delimiter +
+                        element.Element("IM").Value + delimiter +
+                        element.Element("OT").Value + delimiter +
+                        element.Element("DR").Value + delimiter +
+                        element.Element("W").Value + delimiter +
+                        element.Element("QUARTER").Value + delimiter +
+                        element.Element("MONTH").Value + delimiter +
+                        element.Element("DISP").Value + delimiter +
+                        element.Element("DS").Value + delimiter +
+                        element.Element("DATE_START").Value + delimiter +
+                        element.Element("DATE_END").Value + delimiter +
+                        LPUs[lpuId] + delimiter +
+                        lpuId + Environment.NewLine)
+                    );
+                string[] inputArrayComplete = sbResultComplete
+                    .ToString()
+                    .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                StringBuilder resultComplete = new StringBuilder();
+                foreach (string s in inputArrayComplete.ToArray())
                 {
-                    Str = g.Key,
-                    Count = g.Count()
-                })
-                .ToArray();
+                    resultComplete.Append(s);
+                    resultComplete.Append(Environment.NewLine);
+                }
+                swResultComplete[xmlFileType].Write(resultComplete.ToString());
 
-            StringBuilder resultsDuplicatesAll = new StringBuilder();
-            foreach (var s in inputArrayDuplicates)
-            {
-                resultsDuplicatesAll.Append(s.Str + delimiter + s.Count);
-                resultsDuplicatesAll.Append(Environment.NewLine);
+
+                StringBuilder sbResultAll = new StringBuilder();
+                elements
+                    .Where(element => (YEAR - DateTime.Parse(element.Element("DR").Value).Year) >= MIN_AGE)
+                    .ToList()
+                    .ForEach(element => sbResultAll.Append(
+                        element.Element("FAM").Value + delimiter +
+                        element.Element("IM").Value + delimiter +
+                        element.Element("OT").Value + delimiter +
+                        element.Element("DR").Value + delimiter +
+                        element.Element("W").Value + delimiter +
+                        element.Element("QUARTER").Value + delimiter +
+                        element.Element("MONTH").Value + delimiter +
+                        element.Element("DISP").Value + delimiter +
+                        element.Element("DS").Value + delimiter +
+                        element.Element("DATE_START").Value + delimiter +
+                        element.Element("DATE_END").Value + delimiter +
+                        LPUs[lpuId] + delimiter +
+                        lpuId + delimiter +
+                        $"{insertCommand[xmlFileType]}" +
+                        $"'{element.Element("FAM").Value}'," +
+                        $"'{element.Element("IM").Value}'," +
+                        $"'{element.Element("OT").Value}'," +
+                        $"'{element.Element("DR").Value}'," +
+                        $"'{element.Element("W").Value}'," +
+                        $"'{element.Element("QUARTER").Value}'," +
+                        $"'{element.Element("MONTH").Value}'," +
+                        $"'{element.Element("DISP").Value}'," +
+                        $"'{element.Element("DS").Value}'," +
+                        $"'{element.Element("DATE_START").Value}'," +
+                        $"'{element.Element("DATE_END").Value}'," +
+                        $"'{LPUs[lpuId]}'," +
+                        $"'{lpuId}'," +
+                        $"{YEAR}," +
+                        $"{Process.GetCurrentProcess().StartTime:yyyy-MM-dd HH:mm}" +
+                        Environment.NewLine)
+                    );
+                string[] inputArrayAll = sbResultAll
+                    .ToString()
+                    .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+                StringBuilder resultsAll = new StringBuilder();
+                foreach (string s in inputArrayAll.Distinct().ToArray())
+                {
+                    resultsAll.Append(s);
+                    resultsAll.Append(Environment.NewLine);
+                }
+                string resultCsvFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, ".csv"));
+                StreamWriter swResult = new StreamWriter(resultCsvFilePath, false, Encoding.GetEncoding("Windows-1251"));
+                swResult.WriteLine(fileHeader);
+                swResult.Write(resultsAll.ToString());
+                swResult.Close();
+
+                swResultAll[xmlFileType].Write(resultsAll.ToString());
+
+
+                StringBuilder sbResultChildren = new StringBuilder();
+                elements
+                    .Where(element => element.Element("DISP").Value.Equals(DispTypeString[DispType.DN1]) && (YEAR - DateTime.Parse(element.Element("DR").Value).Year) < MIN_AGE)
+                    .ToList()
+                    .ForEach(element => sbResultChildren.Append(
+                        element.Element("FAM").Value + delimiter +
+                        element.Element("IM").Value + delimiter +
+                        element.Element("OT").Value + delimiter +
+                        element.Element("DR").Value + delimiter +
+                        element.Element("W").Value + delimiter +
+                        element.Element("QUARTER").Value + delimiter +
+                        element.Element("MONTH").Value + delimiter +
+                        element.Element("DISP").Value + delimiter +
+                        element.Element("DS").Value + delimiter +
+                        element.Element("DATE_START").Value + delimiter +
+                        element.Element("DATE_END").Value + delimiter +
+                        LPUs[lpuId] + delimiter +
+                        lpuId + Environment.NewLine)
+                    );
+                string[] inputArrayChildren = sbResultChildren
+                    .ToString()
+                    .Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+                StringBuilder resultsChildrenAll = new StringBuilder();
+                foreach (string s in inputArrayChildren)
+                {
+                    resultsChildrenAll.Append(s);
+                    resultsChildrenAll.Append(Environment.NewLine);
+                }
+                string resultCsvChildrenDetFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_children.csv"));
+                StreamWriter swResultChildren = new StreamWriter(resultCsvChildrenDetFilePath, false, Encoding.GetEncoding("Windows-1251"));
+                swResultChildren.WriteLine(fileHeader);
+                swResultChildren.Write(resultsChildrenAll.ToString());
+                swResultChildren.Close();
+
+                swResultChildrenAll[xmlFileType].Write(resultsChildrenAll.ToString());
+
+
+                var inputArrayDuplicates = inputArrayAll
+                    .GroupBy(p => p)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => new
+                    {
+                        Str = g.Key,
+                        Count = g.Count()
+                    })
+                    .ToArray();
+
+                StringBuilder resultsDuplicatesAll = new StringBuilder();
+                foreach (var s in inputArrayDuplicates)
+                {
+                    resultsDuplicatesAll.Append(s.Str + delimiter + s.Count);
+                    resultsDuplicatesAll.Append(Environment.NewLine);
+                }
+                string resultCsvDuplicatesFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_duplicates.csv"));
+                StreamWriter swDuplicates = new StreamWriter(resultCsvDuplicatesFilePath, false, Encoding.GetEncoding("Windows-1251"));
+                swDuplicates.WriteLine(fileHeaderDuplicates);
+                swDuplicates.Write(resultsDuplicatesAll.ToString());
+                swDuplicates.Close();
+
+                swResultDuplicatesAll[xmlFileType].Write(resultsDuplicatesAll.ToString());
+
+                return true;
             }
-            string resultCsvDuplicatesFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_duplicates.csv"));
-            StreamWriter swDuplicates = new StreamWriter(resultCsvDuplicatesFilePath, false, Encoding.GetEncoding("Windows-1251"));
-            swDuplicates.WriteLine(fileHeaderDuplicates);
-            swDuplicates.Write(resultsDuplicatesAll.ToString());
-            swDuplicates.Close();
-
-            swResultDuplicatesAll[xmlFileType].Write(resultsDuplicatesAll.ToString());
-
-            ////Удаляем xml-файлы в папке
-            //string[] fileNames = Directory.GetFiles(outputFolder, "*.xml", SearchOption.AllDirectories);
-            //string fileErrors = string.Empty;
-            //for (int j = 0; j != fileNames.Length; j++)
-            //{
-            //    try
-            //    {
-            //        File.Delete(fileNames[j]);
-            //    }
-            //    catch
-            //    {
-            //        fileErrors = fileErrors + "\n" + fileNames[j];
-            //    }
-            //}
-
-            return true;
+            catch (Exception exception)
+            {
+                return false;
+            }
         }
     }
 }
