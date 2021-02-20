@@ -18,26 +18,27 @@ namespace XMLtoCSVconvertor
         private static int YEAR = 2021;
         private static int MIN_AGE = 18;
 
-        private static readonly string delimiter = ";";
+        private static readonly string delimSemicolon = ";";
+        private static readonly string delimComma = ",";
 
         private static readonly string rootFileMask = string.Format("07*_{0}.zip", YEAR);
 
-        private static readonly Dictionary<int, string> LPUs = new Dictionary<int, string>()
+        private static readonly Dictionary<string, string> LPUs = new Dictionary<string, string>()
         {
-            { 70510, "ГП 1 г.Нальчик" },
-            { 70570, "ГП 2 г.Нальчик" },
-            { 70571, "ГП 3 г.Нальчик" },
-            { 70103, "Баксанской ЦРБ" },
-            { 70105, "РБ с.Заюково" },
-            { 70201, "Зольской ЦРБ" },
-            { 70405, "Майской ЦРБ" },
-            { 70616, "Прохладненской ЦРБ" },
-            { 70714, "Терской ЦРБ" },
-            { 70807, "ММБ г.Нарткала" },
-            { 70906, "Чегемской ЦРБ" },
-            { 71001, "Черекской ЦРБ" },
-            { 71103, "Эльбрусской ЦРБ" },
-            { 71106, "УБ с.Эльбрус" }
+            { "070510", "ГП 1 г.Нальчик" },
+            { "070570", "ГП 2 г.Нальчик" },
+            { "070571", "ГП 3 г.Нальчик" },
+            { "070103", "Баксанской ЦРБ" },
+            { "070105", "РБ с.Заюково" },
+            { "070201", "Зольской ЦРБ" },
+            { "070405", "Майской ЦРБ" },
+            { "070616", "Прохладненской ЦРБ" },
+            { "070714", "Терской ЦРБ" },
+            { "070807", "ММБ г.Нарткала" },
+            { "070906", "Чегемской ЦРБ" },
+            { "071001", "Черекской ЦРБ" },
+            { "071103", "Эльбрусской ЦРБ" },
+            { "071106", "УБ с.Эльбрус" }
         };
 
         private static readonly string lFileMask = "LM*.XML";
@@ -84,6 +85,12 @@ namespace XMLtoCSVconvertor
             { XmlFileType.DN, "DNPL" }
         };
 
+        private static readonly Dictionary<XmlFileType, string> dbTable = new Dictionary<XmlFileType, string>
+        {
+            { XmlFileType.D, "InformData" },
+            { XmlFileType.DN, "InformData" }
+        };
+
         private static readonly Dictionary<XmlFileType, string> dArchiveMasks = new Dictionary<XmlFileType, string>
         {
             { XmlFileType.D, $"{dPrefix[XmlFileType.D]}*.zip" },
@@ -121,11 +128,12 @@ namespace XMLtoCSVconvertor
         };
 
         private static readonly string insertInto = "INSERT INTO ";
-        private static readonly string insertValues = "([Фамилия], [Имя], [Отчество], [Дата рождения], [Пол], [Квартал], [Месяц], [Тип диспансеризации], [Диагноз], [Дата начала], [Дата конца], [ЛПУ], [Комментарий], [Год], [DateTimeOfAddition]) VALUES(";
+        //private static readonly string insertValues = "([Фамилия], [Имя], [Отчество], [Дата рождения], [Пол], [Квартал], [Месяц], [Тип диспансеризации], [Диагноз], [Дата начала], [Дата конца], [ЛПУ], [Комментарий], [Год], [DateTimeOfAddition]) VALUES(";
+        private static readonly string insertValues = "([Surname], [Name], [Patronymic], [Birthdate], [Sex], [Quarter], [Month], [DispType], [DS], [DateBegin], [DateEnd], [LPU], [Comment], [Year], [DateTimeOfAddition]) VALUES(";
         private static readonly Dictionary<XmlFileType, string> insertCommand = new Dictionary<XmlFileType, string>
         {
-            { XmlFileType.D, $"{insertInto}{dPrefix[XmlFileType.D]}{insertValues}" },
-            { XmlFileType.DN, $"{insertInto}{dPrefix[XmlFileType.DN]}{insertValues}" }
+            { XmlFileType.D, $"{insertInto}{dbTable[XmlFileType.D]}{insertValues}" },
+            { XmlFileType.DN, $"{insertInto}{dbTable[XmlFileType.DN]}{insertValues}" }
         };
 
         private static readonly string fileHeader = string.Format("Фамилия;Имя;Отчество;Дата рождения;Пол;Квартал;Месяц;Тип диспансеризации;Диагноз;Дата начала;Дата конца;ЛПУ;Комментарий");
@@ -224,9 +232,7 @@ namespace XMLtoCSVconvertor
                 string dplFileName = Path.GetFileName(dFileFirst);
                 string lpuMO = Path.GetFileNameWithoutExtension(outputDirectory);
 
-                int lpuId = 0;
-                if (!int.TryParse(lpuMO.Substring(0, 6), out lpuId))
-                    return false;
+                string lpuId = lpuMO.Substring(0, 6);
 
                 //объединяем 2 XML в 1
                 XDocument dXDoc = XDocument.Load(dFiles.First());
@@ -311,21 +317,40 @@ namespace XMLtoCSVconvertor
 
                 StringBuilder sbResultComplete = new StringBuilder();
                 elements
+                    .Select(element => new
+                    {
+                        FAM = element.Element("FAM").Value,
+                        IM = element.Element("IM").Value,
+                        OT = element.Element("OT").Value,
+                        DR = element.Element("DR").Value,
+                        W = element.Element("W").Value,
+                        QUARTER = element.Element("QUARTER").Value == "" ? "null" : element.Element("QUARTER").Value,
+                        MONTH = element.Element("MONTH").Value,
+                        DISP = element.Element("DISP").Value,
+                        DS = element.Element("DS").Value,
+                        DATE_START = element.Element("DATE_START").Value == "" ? "null" : element.Element("DATE_START").Value,
+                        DATE_END = element.Element("DATE_END").Value == "" ? "null" : element.Element("DATE_END").Value,
+                        LPU = lpuId,
+                        COMMENT = LPUs[lpuId],
+                        YEAR,
+                        DATETIME_OF_ADDITION = $"'{Process.GetCurrentProcess().StartTime:s}')"
+                    })
                     .ToList()
                     .ForEach(element => sbResultComplete.Append(
-                        element.Element("FAM").Value + delimiter +
-                        element.Element("IM").Value + delimiter +
-                        element.Element("OT").Value + delimiter +
-                        element.Element("DR").Value + delimiter +
-                        element.Element("W").Value + delimiter +
-                        element.Element("QUARTER").Value + delimiter +
-                        element.Element("MONTH").Value + delimiter +
-                        element.Element("DISP").Value + delimiter +
-                        element.Element("DS").Value + delimiter +
-                        element.Element("DATE_START").Value + delimiter +
-                        element.Element("DATE_END").Value + delimiter +
-                        LPUs[lpuId] + delimiter +
-                        lpuId + Environment.NewLine)
+                        $"{element.FAM}{delimSemicolon}" +
+                        $"{element.IM}{delimSemicolon}" +
+                        $"{element.OT}{delimSemicolon}" +
+                        $"{element.DR}{delimSemicolon}" +
+                        $"{element.W}{delimSemicolon}" +
+                        $"{element.QUARTER}{delimSemicolon}" +
+                        $"{element.MONTH}{delimSemicolon}" +
+                        $"{element.DISP}{delimSemicolon}" +
+                        $"{element.DS}{delimSemicolon}" +
+                        $"{element.DATE_START}{delimSemicolon}" +
+                        $"{element.DATE_END}{delimSemicolon}" +
+                        $"{element.LPU}{delimSemicolon}" +
+                        $"{element.COMMENT}{delimSemicolon}" +
+                        Environment.NewLine)
                     );
                 string[] inputArrayComplete = sbResultComplete
                     .ToString()
@@ -342,37 +367,56 @@ namespace XMLtoCSVconvertor
                 StringBuilder sbResultAll = new StringBuilder();
                 elements
                     .Where(element => (YEAR - DateTime.Parse(element.Element("DR").Value).Year) >= MIN_AGE)
+                    .Select(element => new
+                    {
+                        FAM = element.Element("FAM").Value,
+                        IM = element.Element("IM").Value,
+                        OT = element.Element("OT").Value,
+                        DR = $"{element.Element("DR").Value:s}",
+                        W = element.Element("W").Value,
+                        QUARTER = element.Element("QUARTER").Value == "" ? "null" : element.Element("QUARTER").Value,
+                        MONTH = element.Element("MONTH").Value,
+                        DISP = element.Element("DISP").Value,
+                        DS = element.Element("DS").Value,
+                        DATE_START = element.Element("DATE_START").Value == "" ? "null" : $"'{element.Element("DATE_START").Value}'",
+                        DATE_END = element.Element("DATE_END").Value == "" ? "null" : $"'{element.Element("DATE_END").Value}'",
+                        LPU = lpuId,
+                        COMMENT = LPUs[lpuId],
+                        YEAR,
+                        DATETIME_OF_ADDITION = $"{Process.GetCurrentProcess().StartTime:s}"
+                    })
                     .ToList()
                     .ForEach(element => sbResultAll.Append(
-                        element.Element("FAM").Value + delimiter +
-                        element.Element("IM").Value + delimiter +
-                        element.Element("OT").Value + delimiter +
-                        element.Element("DR").Value + delimiter +
-                        element.Element("W").Value + delimiter +
-                        element.Element("QUARTER").Value + delimiter +
-                        element.Element("MONTH").Value + delimiter +
-                        element.Element("DISP").Value + delimiter +
-                        element.Element("DS").Value + delimiter +
-                        element.Element("DATE_START").Value + delimiter +
-                        element.Element("DATE_END").Value + delimiter +
-                        LPUs[lpuId] + delimiter +
-                        lpuId + delimiter +
+                        $"{element.FAM}{delimSemicolon}" +
+                        $"{element.IM}{delimSemicolon}" +
+                        $"{element.OT}{delimSemicolon}" +
+                        $"{element.DR}{delimSemicolon}" +
+                        $"{element.W}{delimSemicolon}" +
+                        $"{element.QUARTER}{delimSemicolon}" +
+                        $"{element.MONTH}{delimSemicolon}" +
+                        $"{element.DISP}{delimSemicolon}" +
+                        $"{element.DS}{delimSemicolon}" +
+                        $"{element.DATE_START}{delimSemicolon}" +
+                        $"{element.DATE_END}{delimSemicolon}" +
+                        $"{element.LPU}{delimSemicolon}" +
+                        $"{element.COMMENT}{delimSemicolon}" +
+
                         $"{insertCommand[xmlFileType]}" +
-                        $"'{element.Element("FAM").Value}'," +
-                        $"'{element.Element("IM").Value}'," +
-                        $"'{element.Element("OT").Value}'," +
-                        $"'{element.Element("DR").Value}'," +
-                        $"'{element.Element("W").Value}'," +
-                        $"'{element.Element("QUARTER").Value}'," +
-                        $"'{element.Element("MONTH").Value}'," +
-                        $"'{element.Element("DISP").Value}'," +
-                        $"'{element.Element("DS").Value}'," +
-                        $"'{element.Element("DATE_START").Value}'," +
-                        $"'{element.Element("DATE_END").Value}'," +
-                        $"'{LPUs[lpuId]}'," +
-                        $"'{lpuId}'," +
-                        $"{YEAR}," +
-                        $"{Process.GetCurrentProcess().StartTime:yyyy-MM-dd HH:mm}" +
+                        $"'{element.FAM}'{delimComma}" +
+                        $"'{element.IM}'{delimComma}" +
+                        $"'{element.OT}'{delimComma}" +
+                        $"'{element.DR}'{delimComma}" +
+                        $"{element.W}{delimComma}" +
+                        $"{element.QUARTER}{delimComma}" +
+                        $"{element.MONTH}{delimComma}" +
+                        $"'{element.DISP}'{delimComma}" +
+                        $"'{element.DS}'{delimComma}" +
+                        $"{element.DATE_START}{delimComma}" +
+                        $"{element.DATE_END}{delimComma}" + 
+                        $"'{element.LPU}'{delimComma}" +
+                        $"'{element.COMMENT}'{delimComma}" +
+                        $"{element.YEAR}{delimComma}" +
+                        $"'{element.DATETIME_OF_ADDITION}')" +
                         Environment.NewLine)
                     );
                 string[] inputArrayAll = sbResultAll
@@ -393,25 +437,43 @@ namespace XMLtoCSVconvertor
 
                 swResultAll[xmlFileType].Write(resultsAll.ToString());
 
-
                 StringBuilder sbResultChildren = new StringBuilder();
                 elements
                     .Where(element => element.Element("DISP").Value.Equals(DispTypeString[DispType.DN1]) && (YEAR - DateTime.Parse(element.Element("DR").Value).Year) < MIN_AGE)
+                    .Select(element => new
+                    {
+                        FAM = element.Element("FAM").Value,
+                        IM = element.Element("IM").Value,
+                        OT = element.Element("OT").Value,
+                        DR = element.Element("DR").Value,
+                        W = element.Element("W").Value,
+                        QUARTER = element.Element("QUARTER").Value == "" ? "null" : element.Element("QUARTER").Value,
+                        MONTH = element.Element("MONTH").Value,
+                        DISP = element.Element("DISP").Value,
+                        DS = element.Element("DS").Value,
+                        DATE_START = element.Element("DATE_START").Value == "" ? "null" : element.Element("DATE_START").Value,
+                        DATE_END = element.Element("DATE_END").Value == "" ? "null" : element.Element("DATE_END").Value,
+                        LPU = lpuId,
+                        COMMENT = LPUs[lpuId],
+                        YEAR,
+                        DATETIME_OF_ADDITION = $"'{Process.GetCurrentProcess().StartTime:s}')"
+                    })
                     .ToList()
                     .ForEach(element => sbResultChildren.Append(
-                        element.Element("FAM").Value + delimiter +
-                        element.Element("IM").Value + delimiter +
-                        element.Element("OT").Value + delimiter +
-                        element.Element("DR").Value + delimiter +
-                        element.Element("W").Value + delimiter +
-                        element.Element("QUARTER").Value + delimiter +
-                        element.Element("MONTH").Value + delimiter +
-                        element.Element("DISP").Value + delimiter +
-                        element.Element("DS").Value + delimiter +
-                        element.Element("DATE_START").Value + delimiter +
-                        element.Element("DATE_END").Value + delimiter +
-                        LPUs[lpuId] + delimiter +
-                        lpuId + Environment.NewLine)
+                        $"{element.FAM}{delimSemicolon}" +
+                        $"{element.IM}{delimSemicolon}" +
+                        $"{element.OT}{delimSemicolon}" +
+                        $"{element.DR}{delimSemicolon}" +
+                        $"{element.W}{delimSemicolon}" +
+                        $"{element.QUARTER}{delimSemicolon}" +
+                        $"{element.MONTH}{delimSemicolon}" +
+                        $"{element.DISP}{delimSemicolon}" +
+                        $"{element.DS}{delimSemicolon}" +
+                        $"{element.DATE_START}{delimSemicolon}" +
+                        $"{element.DATE_END}{delimSemicolon}" +
+                        $"{element.LPU}{delimSemicolon}" +
+                        $"{element.COMMENT}{delimSemicolon}" +
+                        Environment.NewLine)
                     );
                 string[] inputArrayChildren = sbResultChildren
                     .ToString()
@@ -445,7 +507,7 @@ namespace XMLtoCSVconvertor
                 StringBuilder resultsDuplicatesAll = new StringBuilder();
                 foreach (var s in inputArrayDuplicates)
                 {
-                    resultsDuplicatesAll.Append(s.Str + delimiter + s.Count);
+                    resultsDuplicatesAll.Append(s.Str + delimSemicolon + s.Count);
                     resultsDuplicatesAll.Append(Environment.NewLine);
                 }
                 string resultCsvDuplicatesFilePath = Path.Combine(outputFolder, string.Concat(lpuMO, "_duplicates.csv"));
@@ -458,7 +520,7 @@ namespace XMLtoCSVconvertor
 
                 return true;
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 return false;
             }
